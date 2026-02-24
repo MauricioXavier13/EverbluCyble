@@ -44,7 +44,8 @@ void onUpdateData()
   meter_data = get_meter_data();
 
   time_t tnow = time(nullptr);
-  struct tm *ptm = gmtime(&tnow);
+  //struct tm *ptm = gmtime(&tnow);
+  struct tm *ptm = localtime(&tnow);
   Serial.printf("Current date (UTC) : %04d/%02d/%02d %02d:%02d:%02d - %s\n", ptm->tm_year + 1900, ptm->tm_mon + 1, ptm->tm_mday, ptm->tm_hour, ptm->tm_min, ptm->tm_sec, String(tnow, DEC).c_str());
 
   char iso8601[128];
@@ -83,22 +84,16 @@ void onUpdateData()
 void onScheduled()
 {
   time_t tnow = time(nullptr);
-  struct tm *ptm = gmtime(&tnow);
+  // Using localtime
+  struct tm *ptm = localtime(&tnow); 
 
-// Call at 10:00:00 UTC
-  //if (ptm->tm_hour == 10 && ptm->tm_min == 00 && ptm->tm_sec == 0) {
+  bool isTimeToRead = (ptm->tm_hour == 6 && ptm->tm_min == 0 && ptm->tm_sec == 0) ||
+                      (ptm->tm_hour == 12 && ptm->tm_min == 0 && ptm->tm_sec == 0) ||
+                      (ptm->tm_hour == 17 && ptm->tm_min == 50 && ptm->tm_sec == 0);
 
-  // MX Change to between 05
-  
-  if ((ptm->tm_hour >= 7 || ptm->tm_hour <= 19) && ptm->tm_min == 24 && ptm->tm_sec == 0) {
-    //if (ptm->tm_hour == 10 && ptm->tm_min == 0 && ptm->tm_sec == 0) {
-
-    // Call back in 23 hours
-    //mqtt.executeDelayed(1000 * 60 * 60 * 23, onScheduled);
-
-    //MX Change to call back hourly
-    mqtt.executeDelayed(1000 * 60 * 60 * 1, onScheduled);
-    Serial.println("It is time to update data from meter :)");
+  if (isTimeToRead) {
+    mqtt.executeDelayed(60000, onScheduled);
+    Serial.println("Chegou a hora de atualizar os dados do contador :)");
 
     // Update data
     _retry = 0;
@@ -107,7 +102,7 @@ void onScheduled()
     return;
   }
 
-  // Every 500 ms
+  // Verifica a cada 500 ms
   mqtt.executeDelayed(500, onScheduled);
 }
 
@@ -196,7 +191,10 @@ void onConnectionEstablished()
   Serial.println("Connected to MQTT Broker :)");
 
   Serial.println("> Configure time from NTP server.");
-  configTzTime("UTC0", "pool.ntp.org");
+  //configTzTime("UTC0", "pool.ntp.org");
+  
+  //Portugal Time | Winter & Summer Update
+  configTzTime("WET0WEST,M3.5.0/1,M10.5.0/2", "pool.ntp.org");
 
   Serial.println("> Configure Arduino OTA flash.");
   ArduinoOTA.onStart([]() {
